@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>الخريطة الذهنية — تحديد فرع للطباعة</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--line:#e8edf3;}
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:24px 16px 60px;min-height:100vh;
+    font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(1200px 600px at 100% -10%,#e0f2fe 0,transparent 60%),
+      radial-gradient(900px 500px at 0 0,#ede9fe 0,transparent 55%),#f1f5f9;
+  }
+  .wrap{max-width:1300px;margin:0 auto}
+  .top{text-align:center;margin-bottom:14px}
+  .top h1{margin:0 0 6px;font-size:clamp(22px,3vw,32px);font-weight:800;letter-spacing:-.4px}
+  .top p{margin:0;color:var(--muted);font-size:14.5px}
+
+  .save-bar{
+    display:flex;justify-content:center;align-items:center;gap:10px;
+    margin:6px 0 4px;font-size:12.5px;font-weight:700;color:#047857;
+  }
+  .save-dot{
+    width:8px;height:8px;border-radius:50%;background:#10b981;
+    box-shadow:0 0 0 4px rgba(16,185,129,.15);
+    animation:pulse 2s ease-in-out infinite;
+  }
+  .save-dot.saving{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.15)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+  .toolbar{
+    display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;
+    background:#fff;border:1px solid var(--line);border-radius:18px;
+    padding:14px 18px;margin:14px 0;box-shadow:0 10px 30px -24px rgba(15,23,42,.4);
+  }
+  .toolbar .grp{display:flex;align-items:center;gap:8px}
+  .toolbar label{font-weight:800;color:var(--muted);font-size:14px}
+  .toolbar select{
+    font-family:inherit;font-size:14px;font-weight:700;padding:9px 14px;
+    border-radius:11px;border:1px solid var(--line);background:#f8fafc;color:var(--ink);
+    cursor:pointer;transition:border-color .18s,background .18s;
+  }
+  .toolbar select:focus{outline:none;border-color:#2563eb;background:#fff}
+  .sep{width:1px;height:26px;background:var(--line)}
+
+  .chk{
+    display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    font-weight:700;font-size:14px;color:#334155;user-select:none;
+  }
+  .chk input{width:17px;height:17px;accent-color:#0f172a;cursor:pointer;margin:0}
+  .chk .cnt{
+    background:#eef2f7;color:#64748b;font-size:12px;padding:1px 8px;
+    border-radius:999px;font-weight:700;min-width:22px;text-align:center;
+  }
+  .chk .cnt.has{background:#fef3c7;color:#b45309}
+
+  /* ===== selection indicator ===== */
+  .sel-info{
+    display:none;
+    align-items:center;gap:8px;
+    background:#ecfdf5;border:1px solid #a7f3d0;border-radius:11px;
+    padding:6px 10px;
+  }
+  .sel-info.on{display:inline-flex}
+  .sel-badge{
+    font-size:12.5px;font-weight:800;color:#065f46;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .sel-badge .num{
+    background:#10b981;color:#fff;padding:1px 7px;
+    border-radius:999px;font-weight:800;
+  }
+  .btn-clear-sel{
+    font-family:inherit;font-size:11.5px;font-weight:800;
+    background:#ffffff;color:#dc2626;border:1px solid #fecaca;
+    border-radius:7px;padding:4px 10px;cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-clear-sel:hover{background:#fef2f2}
+
+  .btn{
+    font-family:inherit;font-size:14px;font-weight:800;
+    padding:10px 18px;border:none;border-radius:11px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;
+    transition:background .18s,transform .18s;
+  }
+  .btn:disabled{opacity:.6;cursor:wait}
+  .btn-export{background:#059669;color:#fff}
+  .btn-export:hover:not(:disabled){background:#047857;transform:translateY(-1px)}
+  .btn-print{background:#0f172a;color:#fff}
+  .btn-print:hover:not(:disabled){background:#1e293b;transform:translateY(-1px)}
+  .btn-danger{background:#fff;color:#dc2626;border:1px solid #fecaca}
+  .btn-danger:hover:not(:disabled){background:#fef2f2;transform:translateY(-1px)}
+
+  .view-toggle{
+    display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:12px;
+  }
+  .vt-btn{
+    font-family:inherit;font-size:13px;font-weight:700;
+    padding:8px 14px;border:none;background:transparent;color:#64748b;
+    cursor:pointer;border-radius:9px;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s,color .15s;
+  }
+  .vt-btn:hover{color:var(--ink)}
+  .vt-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  .add-form{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;
+    background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;
+    margin:0 0 18px;box-shadow:0 10px 30px -24px rgba(15,23,42,.4);
+    position:relative;
+  }
+  .form-hint{
+    grid-column:1/-1; margin:0 0 4px; font-size:12.5px;
+    color:#64748b; font-weight:600;
+    display:flex; align-items:center; gap:6px;
+  }
+  .form-hint b{color:#2563eb;font-weight:800}
+
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:12px;font-weight:700;color:var(--muted)}
+  .ac-wrap{position:relative}
+  .field input{
+    width:100%;
+    font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:11px;background:#f8fafc;color:var(--ink);
+    transition:border-color .18s,background .18s;
+  }
+  .field input:focus{outline:none;border-color:#2563eb;background:#fff}
+  .field input[type="date"]{font-size:13px}
+
+  .ac-list{
+    position:absolute;top:calc(100% + 4px);left:0;right:0;
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    max-height:230px;overflow-y:auto;
+    box-shadow:0 18px 40px -20px rgba(15,23,42,.35), 0 4px 12px -4px rgba(15,23,42,.08);
+    list-style:none;margin:0;padding:5px;
+    z-index:60;display:none;
+  }
+  .ac-list.open{display:block}
+  .ac-item{
+    padding:8px 11px;border-radius:8px;cursor:pointer;
+    font-size:13.5px;font-weight:600;color:#1e293b;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    transition:background .12s;
+  }
+  .ac-item:hover,.ac-item.active{background:#eef2ff;color:#1e3a8a}
+  .ac-item .ac-count{
+    font-size:11px;font-weight:700;color:#94a3b8;
+    background:#f1f5f9;border-radius:999px;padding:1px 7px;
+  }
+  .ac-item.active .ac-count{background:#c7d2fe;color:#1e3a8a}
+
+  .add-btn{
+    align-self:end;font-family:inherit;font-size:15px;font-weight:800;
+    padding:10px 22px;border:none;border-radius:11px;cursor:pointer;
+    background:#0f172a;color:#fff;transition:transform .18s,background .18s;
+  }
+  .add-btn:hover{background:#1e293b;transform:translateY(-1px)}
+
+  .map-wrap{
+    background:#fff;border:1px solid var(--line);border-radius:22px;
+    box-shadow:0 18px 40px -28px rgba(15,23,42,.5);
+    overflow:auto;max-height:80vh;padding:10px;
+  }
+  .map-wrap.hidden{display:none}
+  .map-wrap svg{display:block}
+  svg text{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif}
+
+  /* node hover & cursor */
+  svg .node-a, svg .node-b{cursor:pointer}
+  svg .node-a:hover, svg .node-b:hover{opacity:0.88}
+
+  .table-wrap{
+    display:none;
+    background:#fff;border:1px solid var(--line);border-radius:22px;
+    box-shadow:0 18px 40px -28px rgba(15,23,42,.5);
+    overflow:auto;max-height:80vh;
+  }
+  .table-wrap.active{display:block}
+  .table-stats{
+    padding:14px 18px 10px;
+    font-size:13px;font-weight:600;color:var(--muted);
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;flex-wrap:wrap;gap:6px;
+  }
+  .table-stats b{color:var(--ink);font-weight:800}
+  .table-stats .hint{
+    margin-inline-start:auto;color:#2563eb;font-weight:700;font-size:12.5px;
+  }
+  .data-table{width:100%;border-collapse:collapse;font-size:14px;}
+  .data-table thead th{
+    position:sticky;top:0;background:#f8fafc;
+    padding:8px 10px;border-bottom:2px solid var(--line);
+    text-align:center;font-weight:800;color:var(--ink);
+    font-size:13px;z-index:5;
+  }
+  .data-table thead th.th-num{width:56px;color:var(--muted)}
+  .data-table thead th.th-date{width:135px;font-size:12px}
+  .data-table thead th.th-date.created{color:#0891b2}
+  .data-table thead th.th-date.completed{color:#059669}
+  .data-table thead th.th-duration{width:110px;color:#f59e0b;font-size:12px}
+  .data-table thead th.th-actions{width:110px;color:var(--muted)}
+
+  .col-name-input{
+    width:100%;background:transparent;
+    border:1px dashed transparent;border-radius:7px;
+    padding:5px 8px;text-align:center;
+    font:inherit;font-weight:800;color:var(--ink);font-size:13px;
+    cursor:text;transition:border-color .15s,background .15s;
+  }
+  .col-name-input:hover{border-color:#cbd5e1;background:#fff}
+  .col-name-input:focus{outline:none;border-color:#2563eb;border-style:solid;background:#fff}
+
+  .data-table tbody td{
+    padding:6px 6px;border-bottom:1px solid var(--line);
+    text-align:center;color:var(--ink);
+  }
+  .data-table tbody tr:last-child td{border-bottom:none}
+  .data-table tbody tr:hover{background:#f8fafc}
+  .data-table .td-num{color:var(--muted);font-weight:700;font-size:13px}
+  .data-table .td-actions{white-space:nowrap;width:110px}
+  .data-table .td-duration{padding:4px;}
+
+  .cell-input{
+    width:100%;background:transparent;
+    border:1px solid transparent;border-radius:7px;
+    padding:5px 7px;text-align:center;
+    font:inherit;font-weight:600;color:var(--ink);font-size:13.5px;
+    transition:border-color .15s,background .15s;
+  }
+  .cell-input:hover{border-color:#e2e8f0;background:#fff}
+  .cell-input:focus{outline:none;border-color:#2563eb;background:#fff}
+  .cell-input.date-input{font-size:12px;font-weight:700}
+  .cell-input.date-input.created{color:#0891b2}
+  .cell-input.date-input.completed{color:#059669}
+
+  .dur-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    font-size:11.5px;font-weight:800;
+    padding:4px 9px;border-radius:999px;white-space:nowrap;
+  }
+  .dur-badge.done{background:#dcfce7;color:#166534;}
+  .dur-badge.pending{background:#fef3c7;color:#92400e;}
+  .dur-badge.empty{color:#cbd5e1;font-weight:700;background:transparent;}
+
+  .row-btn{
+    width:30px;height:30px;border-radius:8px;
+    border:1px solid var(--line);background:#fff;color:#64748b;
+    cursor:pointer;font-size:14px;line-height:1;margin:0 2px;
+    display:inline-flex;align-items:center;justify-content:center;
+    transition:background .15s,border-color .15s,color .15s;
+  }
+  .row-btn:hover{background:#f1f5f9;color:var(--ink)}
+  .row-btn.del:hover{background:#fee2e2;border-color:#fecaca;color:#dc2626}
+  .row-btn.arch:hover{background:#dbeafe;border-color:#bfdbfe;color:#1e40af}
+
+  .archived-row{opacity:.55}
+  .archived-row .cell-input{text-decoration:line-through}
+  .archived-row .td-num{color:#cbd5e1}
+
+  .empty-row{
+    padding:50px 20px !important;color:var(--muted);
+    text-align:center;font-size:15px;
+  }
+
+  .log-wrap{
+    display:none;
+    background:#fff;border:1px solid var(--line);border-radius:22px;
+    box-shadow:0 18px 40px -28px rgba(15,23,42,.5);
+    overflow:hidden;max-height:80vh;
+    flex-direction:column;
+  }
+  .log-wrap.active{display:flex}
+
+  .log-stats{
+    display:flex;align-items:center;gap:10px;
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;font-weight:600;color:var(--muted);
+  }
+  .log-stats b{color:var(--ink);font-weight:800}
+  .log-actions{margin-inline-start:auto;display:flex;gap:6px}
+  .btn-small{
+    font-family:inherit;font-size:12px;font-weight:700;
+    padding:6px 12px;border:none;border-radius:8px;cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-small.btn-danger{background:#fff;color:#dc2626;border:1px solid #fecaca}
+  .btn-small.btn-danger:hover{background:#fef2f2}
+
+  .log-filters{
+    display:flex;flex-wrap:wrap;gap:8px;
+    padding:10px 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .log-chip{
+    --lc:#0f172a;
+    font-family:inherit;font-size:12px;font-weight:700;
+    padding:5px 12px;border-radius:999px;cursor:pointer;
+    background:#f8fafc;color:#475569;border:1px solid var(--line);
+    transition:all .15s;
+  }
+  .log-chip:hover{border-color:var(--lc);color:var(--lc)}
+  .log-chip.active{background:var(--lc);color:#fff;border-color:transparent}
+  .log-chip span{
+    background:rgba(148,163,184,.2);
+    border-radius:999px;padding:0 7px;
+    margin-inline-start:3px;font-size:11px;
+  }
+  .log-chip.active span{background:rgba(255,255,255,.25)}
+
+  .log-list{overflow-y:auto;flex:1;padding:6px 18px 18px;}
+  .log-date-header{
+    font-size:11.5px;font-weight:800;color:var(--muted);
+    padding:14px 0 8px;
+    position:sticky;top:0;background:#fff;z-index:2;
+  }
+  .log-item{
+    --lc:#64748b;
+    display:flex;align-items:flex-start;gap:10px;
+    padding:10px 12px;border-radius:10px;
+    border-inline-start:3px solid var(--lc);
+    background:#f8fafc;
+    margin-bottom:6px;font-size:13px;
+  }
+  .log-icon{font-size:18px;line-height:1;margin-top:1px}
+  .log-body{flex:1;min-width:0}
+  .log-action{font-size:11.5px;font-weight:800;color:var(--lc);margin-bottom:2px;}
+  .log-detail{color:var(--ink);line-height:1.5;word-wrap:break-word}
+  .log-detail .old{color:#dc2626;text-decoration:line-through;opacity:.7}
+  .log-detail .new{color:#059669;font-weight:700}
+  .log-detail .created{color:#0891b2;font-weight:700}
+  .log-detail .completed{color:#059669;font-weight:700}
+  .log-detail .duration{color:#f59e0b;font-weight:800}
+  .log-time{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap;}
+  .log-empty{padding:60px 20px;text-align:center;color:var(--muted);font-size:14px}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:#0f172a;color:#fff;padding:12px 24px;border-radius:12px;
+    font-weight:700;font-size:14px;z-index:1000;
+    box-shadow:0 10px 30px rgba(0,0,0,.2);
+    animation:toastIn .25s ease;
+  }
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)}}
+
+  .foot{margin-top:22px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9}
+
+  @media print{
+    body{background:#fff;padding:0}
+    .toolbar,.add-form,.top,.foot,.toast,.save-bar{display:none !important}
+    .map-wrap,.table-wrap,.log-wrap{max-height:none;overflow:visible;box-shadow:none;border:none;padding:0;border-radius:0}
+    .map-wrap.hidden,.table-wrap:not(.active),.log-wrap:not(.active){display:none !important}
+    @page{size:A4 landscape;margin:8mm}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1>الخريطة الذهنية — تحديد فرع للطباعة</h1>
+    <p>انقر على أي فرع في الخريطة لتحديده &nbsp;·&nbsp; الطباعة والتصدير سيحترمان التحديد.</p>
+  </div>
+
+  <div class="save-bar">
+    <span class="save-dot" id="saveDot"></span>
+    <span id="saveLabel">محفوظ محلياً على هذا الجهاز</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="view-toggle">
+      <button class="vt-btn active" data-view="map" type="button">🗺️ خريطة</button>
+      <button class="vt-btn" data-view="table" type="button">📋 جدول</button>
+      <button class="vt-btn" data-view="log" type="button">📜 سجل التغييرات</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <label for="colA">الفلتر الأول:</label>
+      <select id="colA">
+        <option value="section">القسم</option>
+        <option value="place">المكان</option>
+        <option value="spec">الاختصاص</option>
+        <option value="note">الملاحظة</option>
+      </select>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <label for="colB">الفلتر الثاني:</label>
+      <select id="colB">
+        <option value="spec">الاختصاص</option>
+        <option value="section">القسم</option>
+        <option value="place">المكان</option>
+        <option value="note">الملاحظة</option>
+      </select>
+    </div>
+    <div class="sep"></div>
+    <label class="chk">
+      <input type="checkbox" id="showArchived" checked>
+      <span>إظهار المؤرشفة</span>
+      <span class="cnt" id="archCount">0</span>
+    </label>
+    <div class="sep"></div>
+    <div class="sel-info" id="selInfo">
+      <span class="sel-badge">🔹 <span class="num" id="selBranches">0</span> فرع · <span class="num" id="selRecords">0</span> ملاحظة</span>
+      <button class="btn-clear-sel" id="clearSelBtn" type="button">إلغاء التحديد</button>
+    </div>
+    <div class="sep" id="selSep" style="display:none;"></div>
+    <button class="btn btn-export" id="exportBtn" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <polyline points="9 15 12 12 15 15"/>
+      </svg>
+      تصدير PDF
+    </button>
+    <button class="btn btn-print" id="printBtn" type="button">
+      🖨️ طباعة
+    </button>
+    <button class="btn btn-danger" id="clearBtn" type="button" title="مسح كل البيانات المحفوظة">مسح البيانات</button>
+  </div>
+
+  <form id="addForm" class="add-form" autocomplete="off">
+    <p class="form-hint">💡 تاريخ الإدخال تلقائي &nbsp;·&nbsp; <b>انقر على أي فرع في الخريطة لتحديده</b> قبل الطباعة/التصدير &nbsp;·&nbsp; بدون تحديد = تصدير الكل.</p>
+
+    <div class="field">
+      <label for="noteInput" id="labelNote">الملاحظة</label>
+      <div class="ac-wrap">
+        <input id="noteInput" required placeholder="تغير جهاز إنارة">
+        <ul class="ac-list" id="noteAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="sectionInput" id="labelSection">القسم</label>
+      <div class="ac-wrap">
+        <input id="sectionInput" required placeholder="طابق 6">
+        <ul class="ac-list" id="sectionAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="placeInput" id="labelPlace">المكان</label>
+      <div class="ac-wrap">
+        <input id="placeInput" required placeholder="غرفة 5">
+        <ul class="ac-list" id="placeAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="specInput" id="labelSpec">الاختصاص</label>
+      <div class="ac-wrap">
+        <input id="specInput" required placeholder="كهرباء">
+        <ul class="ac-list" id="specAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="completedInput">✓ تاريخ الإنجاز (اختياري)</label>
+      <input type="date" id="completedInput">
+    </div>
+    <button type="submit" class="add-btn">إضافة</button>
+  </form>
+
+  <div class="map-wrap" id="mapWrap"></div>
+  <div class="table-wrap" id="tableWrap"></div>
+  <div class="log-wrap" id="logWrap"></div>
+
+  <p class="foot">
+    🔹 تحديد = انقر على فرع &nbsp;·&nbsp; ☑ أرشفة &nbsp;·&nbsp; × حذف &nbsp;·&nbsp; بدون تحديد تُطبع/تُصدَّر الخريطة كاملة.
+  </p>
+</div>
+
+<script>
+/* ============================================================
+   0) مساعدات التاريخ والمدة
+   ============================================================ */
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function daysAgoStr(n){
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function durationDays(createdAt, completedAt){
+  if(!createdAt || !completedAt) return null;
+  const c = new Date(String(createdAt) + 'T00:00:00');
+  const a = new Date(String(completedAt) + 'T00:00:00');
+  if(isNaN(c.getTime()) || isNaN(a.getTime())) return null;
+  const diff = Math.round((a - c) / 86400000);
+  if(diff < 0) return null;
+  return diff;
+}
+function formatDuration(days){
+  if(days === null || days === undefined) return '';
+  if(days === 0) return 'نفس اليوم';
+  if(days === 1) return 'يوم واحد';
+  if(days === 2) return 'يومان';
+  if(days >= 3 && days <= 10) return days + ' أيام';
+  return days + ' يوماً';
+}
+function durationText(rec){
+  const d = durationDays(rec.createdAt, rec.completedAt);
+  if(d !== null) return '⏱️ ' + formatDuration(d);
+  if(rec.createdAt && !rec.completedAt){
+    const openDays = durationDays(rec.createdAt, todayStr());
+    if(openDays !== null && openDays > 0) return '⏳ ' + formatDuration(openDays);
+  }
+  return '—';
+}
+function durationBadge(rec){
+  const d = durationDays(rec.createdAt, rec.completedAt);
+  if(d !== null){
+    return `<span class="dur-badge done" title="من ${esc(rec.createdAt)} إلى ${esc(rec.completedAt)}">⏱️ ${esc(formatDuration(d))}</span>`;
+  }
+  if(rec.createdAt && !rec.completedAt){
+    const openDays = durationDays(rec.createdAt, todayStr());
+    if(openDays !== null && openDays > 0){
+      return `<span class="dur-badge pending" title="من ${esc(rec.createdAt)} إلى اليوم">⏳ ${esc(formatDuration(openDays))}</span>`;
+    }
+  }
+  return `<span class="dur-badge empty">—</span>`;
+}
+
+/* ============================================================
+   1) الحفظ المحلي
+   ============================================================ */
+const STORAGE_KEY = 'mindmap_records_v1';
+const SETTINGS_KEY = 'mindmap_settings_v1';
+const LOG_KEY = 'mindmap_log_v1';
+
+const DEFAULT_RECORDS = [
+  { id:1, note:'تغير جهاز إنارة', section:'طابق 6', place:'غرفة 5', spec:'كهرباء', archived:false, createdAt:daysAgoStr(6), completedAt:null },
+  { id:2, note:'تغير شطاف',       section:'طابق 7', place:'غرفة 9', spec:'سباكة',  archived:false, createdAt:daysAgoStr(5), completedAt:daysAgoStr(2) },
+  { id:3, note:'تسكير فتحة',      section:'طابق 8', place:'غرفة 1', spec:'دهان',   archived:false, createdAt:daysAgoStr(4), completedAt:daysAgoStr(1) },
+  { id:4, note:'تصليح باب',       section:'طابق 5', place:'غرفة 2', spec:'بخاخ',   archived:false, createdAt:daysAgoStr(3), completedAt:daysAgoStr(3) },
+  { id:5, note:'تصليح باب',       section:'طابق 5', place:'غرفة 3', spec:'بخاخ',   archived:false, createdAt:daysAgoStr(1), completedAt:null },
+];
+
+const DEFAULT_COL_NAMES = { note:'الملاحظة', section:'القسم', place:'المكان', spec:'الاختصاص' };
+const FIELD_LABELS = { createdAt:'تاريخ الإدخال', completedAt:'تاريخ الإنجاز' };
+let columnNames = { ...DEFAULT_COL_NAMES };
+
+let logEntries = [];
+let logFilter = 'all';
+
+function loadFromStorage(){
+  let loadedRecords = null, loadedSettings = null, loadedLog = null;
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)){
+        loadedRecords = parsed.map(r => ({
+          id: Number(r.id) || 0,
+          note: String(r.note || ''),
+          section: String(r.section || ''),
+          place: String(r.place || ''),
+          spec: String(r.spec || ''),
+          archived: !!r.archived,
+          createdAt: r.createdAt ? String(r.createdAt) : null,
+          completedAt: r.completedAt ? String(r.completedAt) : null,
+        }));
+      }
+    }
+  } catch(e){ console.warn(e); }
+  try{
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if(raw) loadedSettings = JSON.parse(raw);
+  } catch(e){ console.warn(e); }
+  try{
+    const raw = localStorage.getItem(LOG_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)) loadedLog = parsed;
+    }
+  } catch(e){ console.warn(e); }
+  return { records: loadedRecords, settings: loadedSettings, log: loadedLog };
+}
+
+let saveTimer = null;
+function saveNow(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      colA: colA.value, colB: colB.value,
+      showArchived: showArchived.checked,
+      columnNames: columnNames,
+    }));
+    localStorage.setItem(LOG_KEY, JSON.stringify(logEntries));
+    flashSaved(true);
+  } catch(e){ console.error(e); flashSaved(false, 'تعذّر الحفظ'); }
+}
+function scheduleSave(){
+  setSaving();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 250);
+}
+const saveDot = document.getElementById('saveDot');
+const saveLabel = document.getElementById('saveLabel');
+function setSaving(){ saveDot.classList.add('saving'); saveLabel.textContent = 'جارٍ الحفظ…'; }
+function flashSaved(ok, msg){
+  saveDot.classList.remove('saving');
+  saveLabel.textContent = ok ? 'محفوظ محلياً على هذا الجهاز' : (msg || 'تعذّر الحفظ');
+}
+
+/* ============================================================
+   2) سجل التغييرات
+   ============================================================ */
+const ACTION_META = {
+  add:        { icon:'➕', label:'إضافة',            color:'#059669' },
+  edit:       { icon:'✏️', label:'تعديل',            color:'#2563eb' },
+  delete:     { icon:'🗑️', label:'حذف',              color:'#dc2626' },
+  archive:    { icon:'📦', label:'أرشفة',            color:'#7c3aed' },
+  unarchive:  { icon:'📤', label:'إلغاء أرشفة',      color:'#0891b2' },
+  complete:   { icon:'✅', label:'إنجاز',            color:'#10b981' },
+  uncomplete: { icon:'⏪', label:'إلغاء إنجاز',       color:'#f59e0b' },
+  rename_col: { icon:'🏷️', label:'إعادة تسمية عمود', color:'#ea580c' },
+  clear_all:  { icon:'🧹', label:'مسح البيانات',     color:'#dc2626' },
+};
+
+function addLog(entry){
+  logEntries.unshift({ ts: Date.now(), ...entry });
+  if(logEntries.length > 500) logEntries = logEntries.slice(0, 500);
+  scheduleSave();
+  if(currentView === 'log') renderLog();
+}
+function formatTimeOfDay(ts){
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function formatDateKey(ts){
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function formatDateHeader(key){
+  const now = new Date();
+  const todayKey = formatDateKey(now.getTime());
+  const yestKey = formatDateKey(now.getTime() - 86400000);
+  if(key === todayKey) return `اليوم — ${key}`;
+  if(key === yestKey) return `أمس — ${key}`;
+  return key;
+}
+function fieldLabel(field){
+  return columnNames[field] || FIELD_LABELS[field] || DEFAULT_COL_NAMES[field] || field;
+}
+
+/* ============================================================
+   3) البيانات + حالة التحديد
+   ============================================================ */
+let records;
+let nextId;
+
+/* التحديد: مفاتيح A أو أزواج B */
+let selectedAKeys = new Set();
+let selectedBPairs = new Set();
+
+function hasSelection(){
+  return selectedAKeys.size > 0 || selectedBPairs.size > 0;
+}
+
+function toggleASelection(aKey){
+  if(selectedAKeys.has(aKey)){
+    selectedAKeys.delete(aKey);
+  } else {
+    selectedAKeys.add(aKey);
+    for(const p of [...selectedBPairs]){
+      if(p.startsWith(aKey + '::')) selectedBPairs.delete(p);
+    }
+  }
+}
+
+function toggleBSelection(aKey, bKey){
+  const pair = `${aKey}::${bKey}`;
+  if(selectedBPairs.has(pair)){
+    selectedBPairs.delete(pair);
+  } else {
+    selectedBPairs.add(pair);
+    selectedAKeys.delete(aKey);
+  }
+}
+
+function clearSelection(){
+  selectedAKeys.clear();
+  selectedBPairs.clear();
+}
+
+/* السجلات المطابقة للتحديد (أو null إذا لم يوجد تحديد) */
+function getSelectedRecords(){
+  if(!hasSelection()) return null;
+  const A = colA.value, B = colB.value;
+  return records.filter(r => {
+    const aKey = normalizeKey(valOf(r, A)) || '—';
+    const bKey = normalizeKey(valOf(r, B)) || '—';
+    return selectedAKeys.has(aKey) || selectedBPairs.has(`${aKey}::${bKey}`);
+  });
+}
+
+/* المصدر النهائي للتصدير/الطباعة (تحديد + فلتر أرشيف) */
+function getSourceForExport(){
+  const sel = getSelectedRecords();
+  const base = sel !== null ? sel : records;
+  return showArchived.checked ? base : base.filter(r => !r.archived);
+}
+
+/* إزالة تحديدات لم تعد موجودة (بعد حذف/أرشفة) */
+function pruneSelection(){
+  if(!hasSelection()) return;
+  const A = colA.value, B = colB.value;
+  const showArch = showArchived.checked;
+  const source = showArch ? records : records.filter(r => !r.archived);
+
+  const validA = new Set(), validB = new Set();
+  source.forEach(r => {
+    const aKey = normalizeKey(valOf(r, A)) || '—';
+    const bKey = normalizeKey(valOf(r, B)) || '—';
+    validA.add(aKey);
+    validB.add(`${aKey}::${bKey}`);
+  });
+
+  for(const k of [...selectedAKeys]) if(!validA.has(k)) selectedAKeys.delete(k);
+  for(const p of [...selectedBPairs]) if(!validB.has(p)) selectedBPairs.delete(p);
+}
+
+/* تحديث واجهة التحديد */
+function updateSelectionUI(){
+  const branches = selectedAKeys.size + selectedBPairs.size;
+  const recs = getSelectedRecords()?.length || 0;
+  const info = document.getElementById('selInfo');
+  const sep = document.getElementById('selSep');
+  if(branches > 0){
+    info.classList.add('on');
+    sep.style.display = 'block';
+    document.getElementById('selBranches').textContent = branches;
+    document.getElementById('selRecords').textContent = recs;
+  } else {
+    info.classList.remove('on');
+    sep.style.display = 'none';
+  }
+}
+
+/* ============================================================
+   4) تعريفات عامة
+   ============================================================ */
+const COL_KEYS = ['note','section','place','spec'];
+const PALETTE = ['#2563eb','#f59e0b','#059669','#7c3aed','#db2777','#0891b2','#ea580c','#4f46e5','#65a30d','#e11d48'];
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const valOf = (r,k) => (r[k] && String(r[k]).trim()) || '—';
+
+function prettify(s){
+  if(s == null) return '';
+  let out = String(s);
+  out = out.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  out = out.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  out = out.replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '');
+  out = out.replace(/ـ/g, '');
+  out = out.trim().replace(/\s+/g, ' ');
+  out = out.replace(/([ء-ي])(\d)/g, '$1 $2');
+  out = out.replace(/(\d)([ء-ي])/g, '$1 $2');
+  out = out.trim().replace(/\s+/g, ' ');
+  return out;
+}
+function normalizeKey(s){
+  if(s == null) return '';
+  let out = String(s);
+  out = out.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  out = out.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  out = out.replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '');
+  out = out.replace(/ـ/g, '');
+  out = out.replace(/[أإآ]/g, 'ا');
+  out = out.replace(/ى/g, 'ي');
+  out = out.replace(/ة/g, 'ه');
+  out = out.replace(/ء$/, '');
+  out = out.trim().replace(/\s+/g, ' ');
+  out = out.replace(/([ء-ي])(\d)/g, '$1 $2');
+  out = out.replace(/(\d)([ء-ي])/g, '$1 $2');
+  out = out.trim().replace(/\s+/g, ' ');
+  return out;
+}
+function fitFont(text, base, min, maxLen){
+  const len = String(text).length;
+  if(len <= maxLen) return base;
+  return Math.max(min, base - Math.ceil((len - maxLen) * 0.7));
+}
+
+/* ============================================================
+   5) عناصر الصفحة
+   ============================================================ */
+const colA = document.getElementById('colA');
+const colB = document.getElementById('colB');
+const mapWrap = document.getElementById('mapWrap');
+const tableWrap = document.getElementById('tableWrap');
+const logWrap = document.getElementById('logWrap');
+const form = document.getElementById('addForm');
+const noteInput = document.getElementById('noteInput');
+const sectionInput = document.getElementById('sectionInput');
+const placeInput = document.getElementById('placeInput');
+const specInput = document.getElementById('specInput');
+const completedInput = document.getElementById('completedInput');
+const showArchived = document.getElementById('showArchived');
+const archCount = document.getElementById('archCount');
+const exportBtn = document.getElementById('exportBtn');
+const printBtn = document.getElementById('printBtn');
+const clearBtn = document.getElementById('clearBtn');
+const labelNote = document.getElementById('labelNote');
+const labelSection = document.getElementById('labelSection');
+const labelPlace = document.getElementById('labelPlace');
+const labelSpec = document.getElementById('labelSpec');
+
+let currentView = 'map';
+
+/* ============================================================
+   6) تجميع
+   ============================================================ */
+function groupRecords(source, A, B){
+  const groups = {}, aForms = {}, bForms = {}, aDisplay = {}, bDisplay = {};
+  source.forEach(r => {
+    const aRaw = valOf(r, A), bRaw = valOf(r, B);
+    const aKey = normalizeKey(aRaw) || '—';
+    const bKey = normalizeKey(bRaw) || '—';
+    if(!aForms[aKey]) aForms[aKey] = new Set();
+    aForms[aKey].add(aRaw);
+    if(!aDisplay[aKey]) aDisplay[aKey] = prettify(aRaw) || '—';
+    if(!bForms[bKey]) bForms[bKey] = new Set();
+    bForms[bKey].add(bRaw);
+    if(!bDisplay[bKey]) bDisplay[bKey] = prettify(bRaw) || '—';
+    if(!groups[aKey]) groups[aKey] = {};
+    if(!groups[aKey][bKey]) groups[aKey][bKey] = [];
+    groups[aKey][bKey].push(r);
+  });
+  return { groups, aForms, bForms, aDisplay, bDisplay };
+}
+
+/* ============================================================
+   7) بناء SVG — دالة نقية تأخذ source
+   ============================================================ */
+function buildMapSVGString(source, A, B){
+  const { groups, aForms, bForms, aDisplay, bDisplay } = groupRecords(source, A, B);
+  const aKeys = Object.keys(groups);
+  if(aKeys.length === 0) return '';
+
+  const W = 900;
+  const rootW = 170, rootH = 70;
+  const aW = 150, aH = 48;
+  const bW = 140, bH = 38;
+  const leafW = 240, leafH = 44;
+  const gapX = 52;
+  const ROW_H = 48, PAD_B = 12, PAD_A = 18, TOP = 40, BOTTOM = 40;
+
+  const rootX = W - 20 - rootW;
+  const aX = rootX - gapX - aW;
+  const bX = aX - gapX - bW;
+  const leafX = bX - gapX - leafW;
+
+  let y = TOP;
+  const aNodes = [], bNodes = [], leaves = [];
+
+  aKeys.forEach((aKey, ai) => {
+    const aStart = y;
+    const color = PALETTE[ai % PALETTE.length];
+    const bKeys = Object.keys(groups[aKey]);
+    bKeys.forEach(bKey => {
+      const bStart = y;
+      const bNode = { key:bKey, y:0, color, _a:aKey, _b:bKey };
+      groups[aKey][bKey].forEach(rec => {
+        leaves.push({ rec, y: y + ROW_H/2, color, _a:aKey, _b:bKey });
+        y += ROW_H;
+      });
+      y += PAD_B;
+      bNode.y = (bStart + y - PAD_B) / 2;
+      bNodes.push(bNode);
+    });
+    y += PAD_A;
+    aNodes.push({ key:aKey, y: (aStart + y - PAD_A) / 2, color });
+  });
+
+  const totalH = Math.max(y + BOTTOM, 340);
+  const rootCY = totalH / 2;
+  const rootLeft = rootX;
+
+  const svg = [];
+  svg.push(`<svg viewBox="0 0 ${W} ${totalH}" width="${W}" height="${totalH}" xmlns="http://www.w3.org/2000/svg">`);
+
+  aNodes.forEach(a => {
+    svg.push(`<path d="M${rootLeft} ${rootCY} C ${rootLeft-65} ${rootCY}, ${aX+aW+65} ${a.y}, ${aX+aW} ${a.y}"
+      fill="none" stroke="${a.color}" stroke-width="2.6" stroke-opacity="0.45" stroke-linecap="round"/>`);
+    svg.push(`<circle cx="${aX+aW}" cy="${a.y}" r="4.5" fill="${a.color}" opacity="0.85"/>`);
+  });
+  bNodes.forEach(b => {
+    const a = aNodes.find(x => x.key === b._a);
+    if(!a) return;
+    svg.push(`<path d="M${aX} ${a.y} C ${aX-50} ${a.y}, ${bX+bW+50} ${b.y}, ${bX+bW} ${b.y}"
+      fill="none" stroke="${b.color}" stroke-width="2" stroke-opacity="0.4" stroke-linecap="round"/>`);
+    svg.push(`<circle cx="${bX+bW}" cy="${b.y}" r="3.5" fill="${b.color}" opacity="0.75"/>`);
+  });
+  leaves.forEach(lf => {
+    const b = bNodes.find(x => x._a === lf._a && x._b === lf._b);
+    if(!b) return;
+    svg.push(`<path d="M${bX} ${b.y} C ${bX-45} ${b.y}, ${leafX+leafW+45} ${lf.y}, ${leafX+leafW} ${lf.y}"
+      fill="none" stroke="${lf.color}" stroke-width="1.6" stroke-opacity="0.3" stroke-linecap="round"/>`);
+  });
+
+  /* A nodes */
+  aNodes.forEach(a => {
+    const displayVal = aDisplay[a.key] || a.key;
+    const variants = Array.from(aForms[a.key] || []);
+    const title = variants.length > 1 ? variants.join(' / ') : displayVal;
+    const isSel = selectedAKeys.has(a.key);
+    const tip = isSel ? `${title} — محدد (انقر للإلغاء)` : `${title} — انقر لتحديد هذا الفرع`;
+    const fs = fitFont(displayVal, 16, 10, 13);
+    const colLabel = columnNames[A] || DEFAULT_COL_NAMES[A];
+
+    svg.push(`<g class="node-a" data-a-key="${esc(a.key)}">`);
+    svg.push(`<title>${esc(tip)}</title>`);
+
+    /* halo if selected */
+    if(isSel){
+      svg.push(`<rect x="${aX-4}" y="${a.y-aH/2-4}" width="${aW+8}" height="${aH+8}" rx="18"
+        fill="none" stroke="#10b981" stroke-width="2.5" pointer-events="none"/>`);
+    }
+
+    svg.push(`<rect x="${aX}" y="${a.y-aH/2}" width="${aW}" height="${aH}" rx="14" fill="${a.color}"/>`);
+    svg.push(`<text x="${aX+aW/2+6}" y="${a.y-8}" text-anchor="middle" dominant-baseline="middle"
+      font-size="10.5" font-weight="600" fill="#ffffff" opacity="0.8">${esc(colLabel)}</text>`);
+    svg.push(`<text x="${aX+aW/2+6}" y="${a.y+10}" text-anchor="middle" dominant-baseline="middle"
+      font-size="${fs}" font-weight="800" fill="#ffffff">${esc(displayVal)}</text>`);
+
+    /* selection badge (top-right of the rect, visual) */
+    if(isSel){
+      svg.push(`<circle cx="${aX+aW-12}" cy="${a.y-aH/2+12}" r="9" fill="#10b981" stroke="#ffffff" stroke-width="2" pointer-events="none"/>`);
+      svg.push(`<path d="M${aX+aW-16} ${a.y-aH/2+12} l2.8 2.8 l5 -5" stroke="#ffffff" stroke-width="2.2"
+        fill="none" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>`);
+    }
+
+    /* delete × */
+    svg.push(`<g class="delx" data-type="a" data-key="${esc(a.key)}">
+      <circle cx="${aX+14}" cy="${a.y}" r="9" fill="#ffffff" stroke="${a.color}" stroke-width="1.6"/>
+      <text x="${aX+14}" y="${a.y}" text-anchor="middle" dominant-baseline="central"
+            font-size="13" font-weight="800" fill="${a.color}">×</text>
+    </g></g>`);
+  });
+
+  /* B nodes */
+  bNodes.forEach(b => {
+    const displayVal = bDisplay[b.key] || b.key;
+    const variants = Array.from(bForms[b.key] || []);
+    const title = variants.length > 1 ? variants.join(' / ') : displayVal;
+    const pair = `${b._a}::${b.key}`;
+    const isSel = selectedBPairs.has(pair);
+    const tip = isSel ? `${title} — محدد (انقر للإلغاء)` : `${title} — انقر لتحديد هذا الفرع`;
+    const fs = fitFont(displayVal, 14, 9, 12);
+
+    svg.push(`<g class="node-b" data-a-key="${esc(b._a)}" data-b-key="${esc(b.key)}">`);
+    svg.push(`<title>${esc(tip)}</title>`);
+
+    if(isSel){
+      svg.push(`<rect x="${bX-4}" y="${b.y-bH/2-4}" width="${bW+8}" height="${bH+8}" rx="16"
+        fill="none" stroke="#10b981" stroke-width="2.2" pointer-events="none"/>`);
+    }
+
+    svg.push(`<rect x="${bX}" y="${b.y-bH/2}" width="${bW}" height="${bH}" rx="12"
+      fill="#ffffff" stroke="${b.color}" stroke-width="1.8" stroke-opacity="0.75"/>`);
+    svg.push(`<text x="${bX+bW/2+5}" y="${b.y}" text-anchor="middle" dominant-baseline="middle"
+      font-size="${fs}" font-weight="700" fill="${b.color}">${esc(displayVal)}</text>`);
+
+    if(isSel){
+      svg.push(`<circle cx="${bX+bW-10}" cy="${b.y-bH/2+10}" r="8" fill="#10b981" stroke="#ffffff" stroke-width="1.8" pointer-events="none"/>`);
+      svg.push(`<path d="M${bX+bW-13.5} ${b.y-bH/2+10} l2.2 2.2 l4 -4" stroke="#ffffff" stroke-width="2"
+        fill="none" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>`);
+    }
+
+    svg.push(`<g class="delx" data-type="b" data-a="${esc(b._a)}" data-b="${esc(b.key)}">
+      <circle cx="${bX+13}" cy="${b.y}" r="8" fill="#ffffff" stroke="${b.color}" stroke-width="1.4"/>
+      <text x="${bX+13}" y="${b.y}" text-anchor="middle" dominant-baseline="central"
+            font-size="12" font-weight="800" fill="${b.color}">×</text>
+    </g></g>`);
+  });
+
+  /* Leaves */
+  const subKeys = COL_KEYS.filter(k => k !== A && k !== B && k !== 'note');
+  leaves.forEach(lf => {
+    const rec = lf.rec;
+    const archived = !!rec.archived;
+    const completed = !!rec.completedAt;
+    const noteVal = rec.note || '—';
+    const subVal = subKeys.map(k => valOf(rec, k)).join(' · ');
+    const dateLine = completed ? `✓ ${rec.completedAt}` : '';
+    const hasDateLine = !!dateLine;
+
+    const noteFs = fitFont(noteVal, 13.5, 9, 18);
+    const dateFs = 11;
+    const subFs  = fitFont(subVal, 10, 7, 24);
+
+    const dim = archived ? 0.55 : 1;
+    const strike = archived ? 'text-decoration="line-through"' : '';
+
+    const stripeColor = completed ? '#10b981' : lf.color;
+    const leafBg     = completed ? '#f0fdf4' : '#ffffff';
+    const leafStroke = completed ? '#a7f3d0' : '#e2e8f0';
+    const noteFill   = archived ? '#94a3b8' : (completed ? '#065f46' : '#0f172a');
+    const dateFill   = archived ? '#cbd5e1' : '#059669';
+    const subFill    = archived ? '#cbd5e1' : '#94a3b8';
+
+    svg.push(`<g>`);
+    svg.push(`<title>${esc((completed?'✓ منجزة '+rec.completedAt+' — ':'') + (rec.createdAt?'📅 أُدخلت '+rec.createdAt+' — ':'') + (archived?'مؤرشفة':''))}</title>`);
+    svg.push(`<rect x="${leafX}" y="${lf.y-leafH/2}" width="${leafW}" height="${leafH}" rx="10"
+      fill="${leafBg}" stroke="${leafStroke}" stroke-width="1.4" opacity="${dim}"/>`);
+    svg.push(`<rect x="${leafX+leafW-3}" y="${lf.y-leafH/2+4}" width="3" height="${leafH-8}"
+      rx="1.5" fill="${stripeColor}" opacity="${archived ? 0.3 : 0.95}"/>`);
+
+    svg.push(`<text x="${leafX+leafW/2+18}" y="${hasDateLine ? lf.y-8 : lf.y-2}" text-anchor="middle" dominant-baseline="middle"
+      font-size="${noteFs}" font-weight="700" fill="${noteFill}" ${strike}>${esc(noteVal)}</text>`);
+    if(hasDateLine){
+      svg.push(`<text x="${leafX+leafW/2+18}" y="${lf.y+8}" text-anchor="middle" dominant-baseline="middle"
+        font-size="${dateFs}" font-weight="700" fill="${dateFill}" opacity="${dim}" ${strike}>${esc(dateLine)}</text>`);
+    }
+    if(subVal){
+      if(hasDateLine){
+        svg.push(`<text x="${leafX+leafW/2+18}" y="${lf.y+20}" text-anchor="middle" dominant-baseline="middle"
+          font-size="${subFs}" font-weight="600" fill="${subFill}" opacity="${dim}" ${strike}>${esc(subVal)}</text>`);
+      } else {
+        svg.push(`<text x="${leafX+leafW/2+18}" y="${lf.y+12}" text-anchor="middle" dominant-baseline="middle"
+          font-size="${subFs}" font-weight="600" fill="${subFill}" opacity="${dim}" ${strike}>${esc(subVal)}</text>`);
+      }
+    }
+
+    svg.push(`<g class="delx" data-type="leaf" data-id="${rec.id}">
+      <circle cx="${leafX+15}" cy="${lf.y}" r="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <text x="${leafX+15}" y="${lf.y}" text-anchor="middle" dominant-baseline="central"
+            font-size="12" font-weight="800" fill="#64748b">×</text>
+    </g>`);
+    svg.push(`<g class="archchk" data-id="${rec.id}">
+      <title>${archived ? 'إلغاء الأرشفة' : 'أرشفة'}</title>
+      <rect x="${leafX+32}" y="${lf.y-7}" width="14" height="14" rx="3.5"
+            fill="${archived ? lf.color : '#ffffff'}"
+            stroke="${archived ? lf.color : '#cbd5e1'}" stroke-width="1.5"/>
+      ${archived ? `<path d="M${leafX+35.5} ${lf.y} l3.5 3 l5 -7"
+        stroke="#ffffff" stroke-width="2" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    </g></g>`);
+  });
+
+  /* Root */
+  svg.push(`<rect x="${rootX}" y="${rootCY-rootH/2}" width="${rootW}" height="${rootH}" rx="20" fill="#0f172a"/>`);
+  svg.push(`<text x="${rootX+rootW/2}" y="${rootCY-14}" text-anchor="middle" dominant-baseline="middle"
+    font-size="11" font-weight="700" fill="#ffffff" opacity="0.75" letter-spacing="0.5">الملاحظات</text>`);
+  svg.push(`<text x="${rootX+rootW/2}" y="${rootCY+14}" text-anchor="middle" dominant-baseline="middle"
+    font-size="22" font-weight="800" fill="#ffffff">${source.length}</text>`);
+
+  svg.push(`</svg>`);
+  return svg.join('');
+}
+
+/* ============================================================
+   8) render — يستخدم buildMapSVGString
+   ============================================================ */
+function render(){
+  const A = colA.value, B = colB.value;
+  const showArch = showArchived.checked;
+  const source = showArch ? records : records.filter(r => !r.archived);
+  const archN = records.filter(r => r.archived).length;
+  archCount.textContent = archN;
+  archCount.classList.toggle('has', archN > 0);
+
+  if(source.length === 0){
+    mapWrap.innerHTML = showArch
+      ? '<div class="empty">لا توجد ملاحظات. أضف ملاحظة من النموذج أعلاه.</div>'
+      : '<div class="empty">كل الملاحظات مؤرشفة. فعّل "إظهار المؤرشفة" لعرضها.</div>';
+    return;
+  }
+
+  mapWrap.innerHTML = buildMapSVGString(source, A, B);
+}
+
+/* ============================================================
+   9) الجدول
+   ============================================================ */
+function renderTable(){
+  const source = showArchived.checked ? records : records.filter(r => !r.archived);
+  const archN = records.filter(r => r.archived).length;
+  const completedN = records.filter(r => r.completedAt).length;
+
+  const headCells = COL_KEYS.map(k => {
+    const name = columnNames[k] || DEFAULT_COL_NAMES[k];
+    return `<th>
+      <input class="col-name-input" data-field="${k}" value="${esc(name)}"
+             title="انقر لتعديل اسم العمود" placeholder="${esc(DEFAULT_COL_NAMES[k])}">
+    </th>`;
+  }).join('');
+
+  let rows = '';
+  if(source.length === 0){
+    rows = `<tr><td colspan="${COL_KEYS.length + 5}" class="empty-row">
+      ${showArchived.checked ? 'لا توجد ملاحظات — أضف واحدة من النموذج أعلاه' : 'كل الملاحظات مؤرشفة — فعّل "إظهار المؤرشفة"'}
+    </td></tr>`;
+  } else {
+    source.forEach(r => {
+      const arch = !!r.archived;
+      const cells = COL_KEYS.map(k => `
+        <td><input class="cell-input" data-id="${r.id}" data-field="${k}"
+                   value="${esc(r[k] || '')}" placeholder="—"></td>
+      `).join('');
+      rows += `
+        <tr class="${arch ? 'archived-row' : ''}">
+          <td class="td-num">${r.id}</td>
+          ${cells}
+          <td>
+            <input type="date" class="cell-input date-input created" data-id="${r.id}" data-field="createdAt"
+                   value="${r.createdAt || ''}" title="تاريخ الإدخال">
+          </td>
+          <td>
+            <input type="date" class="cell-input date-input completed" data-id="${r.id}" data-field="completedAt"
+                   value="${r.completedAt || ''}" title="تاريخ الإنجاز">
+          </td>
+          <td class="td-duration">${durationBadge(r)}</td>
+          <td class="td-actions">
+            <button class="row-btn arch" data-id="${r.id}" title="${arch ? 'إلغاء الأرشفة' : 'أرشفة'}">${arch ? '↩️' : '☑'}</button>
+            <button class="row-btn del"  data-id="${r.id}" title="حذف">×</button>
+          </td>
+        </tr>`;
+    });
+  }
+
+  tableWrap.innerHTML = `
+    <div class="table-stats">
+      عرض <b>${source.length}</b> من <b>${records.length}</b>
+      ${archN > 0 ? `&nbsp;·&nbsp; <b>${archN}</b> مؤرشفة` : ''}
+      ${completedN > 0 ? `&nbsp;·&nbsp; <b>${completedN}</b> منجزة` : ''}
+      <span class="hint">⏱️ المدة تُحسب تلقائياً (الإنجاز − الإدخال)</span>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-num">#</th>
+          ${headCells}
+          <th class="th-date created">📅 الإدخال</th>
+          <th class="th-date completed">✓ الإنجاز</th>
+          <th class="th-duration">⏱️ المدة</th>
+          <th class="th-actions">إجراءات</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ============================================================
+   10) السجل
+   ============================================================ */
+function renderLog(){
+  const filtered = logFilter === 'all' ? logEntries : logEntries.filter(e => e.action === logFilter);
+  const counts = {};
+  logEntries.forEach(e => { counts[e.action] = (counts[e.action]||0) + 1; });
+
+  const actions = ['all','add','edit','delete','archive','unarchive','complete','uncomplete','rename_col','clear_all'];
+  const chips = actions.map(a => {
+    if(a === 'all'){
+      return `<button class="log-chip ${logFilter==='all'?'active':''}" data-action="all">الكل <span>${logEntries.length}</span></button>`;
+    }
+    if(!counts[a]) return '';
+    const m = ACTION_META[a];
+    return `<button class="log-chip ${logFilter===a?'active':''}" data-action="${a}"
+            style="--lc:${m.color}">${m.icon} ${m.label} <span>${counts[a]}</span></button>`;
+  }).join('');
+
+  const groups = {};
+  filtered.forEach(e => {
+    const key = formatDateKey(e.ts);
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
+  const dateKeys = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+
+  let listHtml = '';
+  if(filtered.length === 0){
+    listHtml = `<div class="log-empty">
+      <div style="font-size:42px;margin-bottom:10px">📜</div>
+      ${logEntries.length === 0 ? 'لا توجد تغييرات مسجّلة بعد.' : 'لا توجد تغييرات تطابق الفلتر.'}
+    </div>`;
+  } else {
+    dateKeys.forEach(dk => {
+      listHtml += `<div class="log-date-header">${esc(formatDateHeader(dk))}</div>`;
+      groups[dk].forEach(e => { listHtml += logItemHtml(e); });
+    });
+  }
+
+  logWrap.innerHTML = `
+    <div class="log-stats">
+      سجل التغييرات &nbsp;·&nbsp; <b>${logEntries.length}</b> سجل
+      <div class="log-actions">
+        <button class="btn-small btn-danger" id="clearLogBtn">مسح السجل</button>
+      </div>
+    </div>
+    <div class="log-filters">${chips}</div>
+    <div class="log-list">${listHtml}</div>`;
+}
+
+function logItemHtml(e){
+  const m = ACTION_META[e.action] || { icon:'•', label:e.action, color:'#64748b' };
+  const time = formatTimeOfDay(e.ts);
+  const recLabel = e.recordNote ? `<b>${esc(e.recordNote)}</b>` : '';
+  let detail = '';
+
+  switch(e.action){
+    case 'add': {
+      const parts = [];
+      if(e.createdAt) parts.push(`📅 <span class="created">${esc(e.createdAt)}</span>`);
+      if(e.completedAt){
+        const dur = e.duration != null ? formatDuration(e.duration) : null;
+        parts.push(`✓ <span class="completed">${esc(e.completedAt)}</span>` + (dur ? ` · ⏱️ <span class="duration">${esc(dur)}</span>` : ''));
+      }
+      detail = `${recLabel}${parts.length ? ' · ' + parts.join(' · ') : ''}`;
+      break;
+    }
+    case 'edit':
+      detail = `${recLabel} · ${esc(fieldLabel(e.field))}:
+                <span class="old">${esc(e.oldVal || '—')}</span> → <span class="new">${esc(e.newVal || '—')}</span>`;
+      break;
+    case 'delete':
+      detail = `${recLabel}${e.createdAt ? ` · 📅 ${esc(e.createdAt)}` : ''}`;
+      break;
+    case 'archive':
+    case 'unarchive':
+      detail = `${recLabel}`;
+      break;
+    case 'complete': {
+      const dur = e.duration != null ? formatDuration(e.duration) : null;
+      detail = `${recLabel} · ✓ <span class="new">${esc(e.newVal)}</span>` + (dur ? ` · ⏱️ <span class="duration">${esc(dur)}</span>` : '');
+      break;
+    }
+    case 'uncomplete':
+      detail = `${recLabel} · تم إلغاء تاريخ الإنجاز`;
+      break;
+    case 'rename_col':
+      detail = `العمود <span class="old">${esc(e.oldVal)}</span> → <span class="new">${esc(e.newVal)}</span>`;
+      break;
+    case 'clear_all':
+      detail = `تم مسح كل البيانات وإعادة التعيين`;
+      break;
+    default:
+      detail = esc(JSON.stringify(e));
+  }
+
+  return `
+    <div class="log-item" style="--lc:${m.color}">
+      <span class="log-icon">${m.icon}</span>
+      <div class="log-body">
+        <div class="log-action">${m.label}</div>
+        <div class="log-detail">${detail}</div>
+      </div>
+      <span class="log-time">${time}</span>
+    </div>`;
+}
+
+/* ============================================================
+   11) التبديل
+   ============================================================ */
+function setView(v){
+  currentView = v;
+  mapWrap.classList.toggle('hidden', v !== 'map');
+  tableWrap.classList.toggle('active', v === 'table');
+  logWrap.classList.toggle('active', v === 'log');
+  document.querySelectorAll('.vt-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === v)
+  );
+  if(v === 'table') renderTable();
+  if(v === 'log') renderLog();
+}
+function refresh(){
+  render();
+  renderTable();
+  if(currentView === 'log') renderLog();
+  updateSelectionUI();
+}
+function afterMutation(){
+  pruneSelection();
+  refresh();
+}
+
+/* ============================================================
+   12) اقتراحات
+   ============================================================ */
+function uniqueValuesForField(field){
+  const counts = new Map(), displays = new Map();
+  records.forEach(r => {
+    const v = r[field];
+    if(!v) return;
+    const k = normalizeKey(v);
+    counts.set(k, (counts.get(k) || 0) + 1);
+    if(!displays.has(k)) displays.set(k, prettify(v));
+  });
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, c]) => ({ key: k, display: displays.get(k), count: c }));
+}
+function suggestionsFor(input, field){
+  const all = uniqueValuesForField(field);
+  const q = normalizeKey(input);
+  if(!q) return all.slice(0, 10);
+  const prefix = [], contains = [];
+  all.forEach(item => {
+    if(item.key === q) return;
+    if(item.key.startsWith(q)) prefix.push(item);
+    else if(item.key.includes(q)) contains.push(item);
+  });
+  return [...prefix, ...contains].slice(0, 10);
+}
+function attachAutocomplete(input, field){
+  const list = input.parentElement.querySelector('.ac-list');
+  if(!list) return;
+  let items = [], activeIdx = -1;
+  function renderList(){
+    if(items.length === 0){ close(); return; }
+    list.innerHTML = items.map((it, i) =>
+      `<li class="ac-item${i === activeIdx ? ' active' : ''}" data-i="${i}">
+         <span>${esc(it.display)}</span>
+         ${it.count > 1 ? `<span class="ac-count">${it.count}</span>` : ''}
+       </li>`
+    ).join('');
+    list.classList.add('open');
+  }
+  function refreshList(){ items = suggestionsFor(input.value, field); activeIdx = -1; renderList(); }
+  function close(){ list.classList.remove('open'); list.innerHTML = ''; activeIdx = -1; }
+  function choose(idx){
+    const it = items[idx]; if(!it) return;
+    input.value = it.display; close();
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+  }
+  input.addEventListener('input', refreshList);
+  input.addEventListener('focus', refreshList);
+  input.addEventListener('blur', () => setTimeout(close, 150));
+  input.addEventListener('keydown', e => {
+    const open = list.classList.contains('open');
+    if(!open){ if(e.key === 'ArrowDown'){ e.preventDefault(); refreshList(); } return; }
+    if(e.key === 'ArrowDown'){ e.preventDefault(); activeIdx = Math.min(items.length-1, activeIdx+1); renderList(); list.querySelector('.ac-item.active')?.scrollIntoView({block:'nearest'}); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); activeIdx = Math.max(-1, activeIdx-1); renderList(); list.querySelector('.ac-item.active')?.scrollIntoView({block:'nearest'}); }
+    else if(e.key === 'Enter'){ if(activeIdx >= 0){ e.preventDefault(); choose(activeIdx); } }
+    else if(e.key === 'Escape'){ close(); }
+    else if(e.key === 'Tab'){ if(activeIdx >= 0) choose(activeIdx); }
+  });
+  list.addEventListener('mousedown', e => {
+    const li = e.target.closest('.ac-item'); if(!li) return;
+    e.preventDefault(); choose(Number(li.dataset.i));
+  });
+}
+
+/* ============================================================
+   13) أدوات
+   ============================================================ */
+function keepDistinct(which){
+  if(colA.value !== colB.value) return;
+  const other = which === 'a' ? colB : colA;
+  const taken = which === 'a' ? colA.value : colB.value;
+  for(const k of COL_KEYS){ if(k !== taken){ other.value = k; return; } }
+}
+let toastTimer = null;
+function showToast(msg){
+  document.querySelector('.toast')?.remove();
+  clearTimeout(toastTimer);
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  toastTimer = setTimeout(() => t.remove(), 1800);
+}
+function updateColumnSelects(){
+  ['colA','colB'].forEach(id => {
+    document.querySelectorAll('#' + id + ' option').forEach(opt => {
+      opt.textContent = columnNames[opt.value] || DEFAULT_COL_NAMES[opt.value];
+    });
+  });
+  labelNote.textContent    = columnNames.note    || DEFAULT_COL_NAMES.note;
+  labelSection.textContent = columnNames.section || DEFAULT_COL_NAMES.section;
+  labelPlace.textContent   = columnNames.place   || DEFAULT_COL_NAMES.place;
+  labelSpec.textContent    = columnNames.spec    || DEFAULT_COL_NAMES.spec;
+}
+
+/* ============================================================
+   14) تصدير PDF (يحترم التحديد)
+   ============================================================ */
+async function exportPDF(){
+  const original = exportBtn.innerHTML;
+  exportBtn.disabled = true;
+  exportBtn.textContent = '... جارٍ التصدير';
+  try {
+    let canvas;
+    if(currentView === 'table') canvas = await renderTableToCanvas();
+    else canvas = await renderMapToCanvas();
+
+    if(!window.jspdf || !window.jspdf.jsPDF){
+      throw new Error('مكتبة jsPDF لم تُحمَّل. تحقّق من الاتصال أو استخدم Ctrl+P.');
+    }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 6;
+    const availW = pageW - margin * 2;
+    const availH = pageH - margin * 2;
+    const W = canvas.width, H = canvas.height;
+    const mmPerPx = availW / W;
+    const drawWmm = availW;
+    const drawHmm = H * mmPerPx;
+
+    const scope = hasSelection() ? 'selected' : 'all';
+    const filename = `mindmap-${currentView}-${scope}-${new Date().toISOString().slice(0,10)}.pdf`;
+
+    if(drawHmm <= availH){
+      const y = margin + (availH - drawHmm) / 2;
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, drawWmm, drawHmm, undefined, 'FAST');
+    } else {
+      const pxPerMm = canvas.width / drawWmm;
+      const sliceHeightPx = Math.max(1, Math.floor(availH * pxPerMm));
+      let yOffsetPx = 0, pageIdx = 0;
+      while(yOffsetPx < canvas.height){
+        const sliceH = Math.min(sliceHeightPx, canvas.height - yOffsetPx);
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width; slice.height = sliceH;
+        const sctx = slice.getContext('2d');
+        sctx.fillStyle = '#ffffff';
+        sctx.fillRect(0, 0, slice.width, slice.height);
+        sctx.drawImage(canvas, 0, yOffsetPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        if(pageIdx > 0) pdf.addPage();
+        const sliceHmm = sliceH / pxPerMm;
+        pdf.addImage(slice.toDataURL('image/png'), 'PNG', margin, margin, drawWmm, sliceHmm, undefined, 'FAST');
+        yOffsetPx += sliceH; pageIdx++;
+      }
+    }
+
+    pdf.save(filename);
+    showToast(hasSelection()
+      ? `✓ تم تصدير ${getSelectedRecords().length} ملاحظة من الفروع المحددة`
+      : '✓ تم تصدير الخريطة كاملة');
+  } catch(err){
+    console.error(err);
+    alert('تعذّر التصدير:\n' + err.message + '\n\nجرّب الطباعة: Ctrl+P ثم "حفظ كـ PDF".');
+  } finally {
+    exportBtn.disabled = false;
+    exportBtn.innerHTML = original;
+  }
+}
+
+async function renderMapToCanvas(){
+  const source = getSourceForExport();
+  if(source.length === 0){
+    throw new Error(hasSelection()
+      ? 'لا توجد ملاحظات في التحديد الحالي (قد تكون كلها مؤرشفة)'
+      : 'لا توجد خريطة لتصديرها');
+  }
+  const A = colA.value, B = colB.value;
+  const svgStr = buildMapSVGString(source, A, B);
+
+  const temp = document.createElement('div');
+  temp.innerHTML = svgStr;
+  const svgEl = temp.querySelector('svg');
+  if(!svgEl) throw new Error('فشل بناء الخريطة');
+  svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  svgEl.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  svgEl.querySelectorAll('.delx, .archchk, title').forEach(el => el.remove());
+
+  const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  styleEl.textContent = `text{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;}`;
+  svgEl.insertBefore(styleEl, svgEl.firstChild);
+
+  const vb = svgEl.viewBox.baseVal;
+  const W = vb.width || 900, H = vb.height || 500;
+
+  const svgString = new XMLSerializer().serializeToString(svgEl);
+  const blob = new Blob([svgString], { type:'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  await new Promise((res, rej) => {
+    img.onload = res; img.onerror = () => rej(new Error('فشل تحميل الخريطة كصورة'));
+    img.src = url;
+  });
+  let scale = 2.5;
+  const MAX_DIM = 16000;
+  if(W * scale > MAX_DIM) scale = MAX_DIM / W;
+  if(H * scale > MAX_DIM) scale = MAX_DIM / H;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(W * scale));
+  canvas.height = Math.max(1, Math.round(H * scale));
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  URL.revokeObjectURL(url);
+  return canvas;
+}
+
+async function renderTableToCanvas(){
+  const source = showArchived.checked ? records : records.filter(r => !r.archived);
+  const cols = COL_KEYS;
+  const rowH = 44, headH = 54, pad = 20;
+  const colWidths = cols.map(k => {
+    let maxLen = (columnNames[k] || '').length;
+    source.forEach(r => { maxLen = Math.max(maxLen, String(r[k] || '').length); });
+    return Math.max(140, Math.min(340, maxLen * 14 + 40));
+  });
+  const numW = 60, dateW = 120, durW = 120, actW = 70;
+  const W = numW + colWidths.reduce((a,b)=>a+b,0) + dateW * 2 + durW + actW + pad * 2;
+  const H = pad * 2 + headH + source.length * rowH;
+  const scale = 2.5;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(W * scale);
+  canvas.height = Math.round(H * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+  ctx.direction = 'rtl'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, W, pad + headH);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '800 16px Cairo, Segoe UI, sans-serif';
+  let x = W - pad;
+  ctx.fillText('#', x - numW/2, pad + headH/2); x -= numW;
+  cols.forEach((k, i) => {
+    ctx.fillText(columnNames[k] || DEFAULT_COL_NAMES[k], x - colWidths[i]/2, pad + headH/2);
+    x -= colWidths[i];
+  });
+  ctx.fillStyle = '#0891b2';
+  ctx.fillText('📅 الإدخال', x - dateW/2, pad + headH/2); x -= dateW;
+  ctx.fillStyle = '#059669';
+  ctx.fillText('✓ الإنجاز', x - dateW/2, pad + headH/2); x -= dateW;
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillText('⏱️ المدة', x - durW/2, pad + headH/2); x -= durW;
+  ctx.fillStyle = '#0f172a';
+  ctx.fillText('إجراءات', x - actW/2, pad + headH/2);
+
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  source.forEach((r, ri) => {
+    const ry = pad + headH + ri * rowH;
+    if(ri % 2 === 1){ ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, ry, W, rowH); }
+    const dim = r.archived;
+    ctx.fillStyle = dim ? '#94a3b8' : '#0f172a';
+    ctx.font = '600 14px Cairo, Segoe UI, sans-serif';
+    let cx = W - pad;
+    ctx.fillText(String(r.id), cx - numW/2, ry + rowH/2); cx -= numW;
+    cols.forEach((k, i) => {
+      ctx.fillText(String(r[k] || '—'), cx - colWidths[i]/2, ry + rowH/2);
+      cx -= colWidths[i];
+    });
+    ctx.fillStyle = r.createdAt ? '#0891b2' : '#cbd5e1';
+    ctx.font = '700 12px Cairo, Segoe UI, sans-serif';
+    ctx.fillText(r.createdAt ? '📅 ' + r.createdAt : '—', cx - dateW/2, ry + rowH/2); cx -= dateW;
+    ctx.fillStyle = r.completedAt ? '#059669' : '#cbd5e1';
+    ctx.fillText(r.completedAt ? '✓ ' + r.completedAt : '—', cx - dateW/2, ry + rowH/2); cx -= dateW;
+
+    const dTxt = durationText(r);
+    if(dTxt.startsWith('⏱️')){
+      ctx.fillStyle = '#166534'; ctx.font = '800 12px Cairo, Segoe UI, sans-serif';
+    } else if(dTxt.startsWith('⏳')){
+      ctx.fillStyle = '#92400e'; ctx.font = '800 12px Cairo, Segoe UI, sans-serif';
+    } else {
+      ctx.fillStyle = '#cbd5e1'; ctx.font = '700 12px Cairo, Segoe UI, sans-serif';
+    }
+    ctx.fillText(dTxt, cx - durW/2, ry + rowH/2); cx -= durW;
+
+    ctx.fillStyle = dim ? '#94a3b8' : '#0f172a';
+    ctx.font = '600 13px Cairo, Segoe UI, sans-serif';
+    ctx.fillText(r.archived ? 'مؤرشفة' : '', cx - actW/2, ry + rowH/2);
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.beginPath(); ctx.moveTo(0, ry + rowH); ctx.lineTo(W, ry + rowH); ctx.stroke();
+  });
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#64748b';
+  ctx.font = '700 12px Cairo, Segoe UI, sans-serif';
+  ctx.fillText(`جدول البيانات — ${source.length} من ${records.length}`, W - pad, 12);
+  return canvas;
+}
+
+/* ============================================================
+   15) طباعة عبر المتصفح (تحترم التحديد)
+   ============================================================ */
+function printMap(){
+  const source = getSourceForExport();
+  if(source.length === 0){
+    showToast('لا توجد ملاحظات للطباعة');
+    return;
+  }
+  if(currentView !== 'map'){
+    showToast('جارٍ التبديل لعرض الخريطة…');
+    setView('map');
+  }
+
+  const A = colA.value, B = colB.value;
+  // استبدال مؤقت بمحتوى مفلتر (مع الاحتفاظ بالتحديد للطباعة كما هو)
+  const originalHtml = mapWrap.innerHTML;
+  mapWrap.innerHTML = buildMapSVGString(source, A, B);
+
+  const restore = () => {
+    mapWrap.innerHTML = originalHtml;
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+
+  setTimeout(() => {
+    window.print();
+    // fallback in case afterprint doesn't fire
+    setTimeout(restore, 1500);
+  }, 200);
+}
+
+/* ============================================================
+   16) التهيئة
+   ============================================================ */
+function init(){
+  const loaded = loadFromStorage();
+  if(loaded.records && loaded.records.length > 0){
+    records = loaded.records.map(r => ({
+      ...r,
+      note: prettify(r.note),
+      section: prettify(r.section),
+      place: prettify(r.place),
+      spec: prettify(r.spec),
+    }));
+    nextId = Math.max(0, ...records.map(r => r.id)) + 1;
+  } else {
+    records = DEFAULT_RECORDS.map(r => ({ ...r }));
+    nextId = records.length + 1;
+  }
+  logEntries = (loaded.log || []).map(e => ({
+    ts: Number(e.ts) || Date.now(),
+    action: String(e.action || 'edit'),
+    recordId: e.recordId,
+    recordNote: e.recordNote ? String(e.recordNote) : '',
+    field: e.field ? String(e.field) : null,
+    oldVal: e.oldVal != null ? String(e.oldVal) : null,
+    newVal: e.newVal != null ? String(e.newVal) : null,
+    createdAt: e.createdAt ? String(e.createdAt) : null,
+    completedAt: e.completedAt ? String(e.completedAt) : null,
+    duration: (typeof e.duration === 'number') ? e.duration : null,
+  }));
+  if(loaded.settings){
+    if(COL_KEYS.includes(loaded.settings.colA)) colA.value = loaded.settings.colA;
+    if(COL_KEYS.includes(loaded.settings.colB)) colB.value = loaded.settings.colB;
+    if(typeof loaded.settings.showArchived === 'boolean') showArchived.checked = loaded.settings.showArchived;
+    if(loaded.settings.columnNames && typeof loaded.settings.columnNames === 'object'){
+      columnNames = { ...DEFAULT_COL_NAMES, ...loaded.settings.columnNames };
+    }
+  }
+  if(colA.value === colB.value){ colB.value = COL_KEYS.find(k => k !== colA.value); }
+  updateColumnSelects();
+  attachAutocomplete(noteInput,    'note');
+  attachAutocomplete(sectionInput, 'section');
+  attachAutocomplete(placeInput,   'place');
+  attachAutocomplete(specInput,    'spec');
+  refresh();
+  setView('map');
+}
+
+/* ============================================================
+   17) الأحداث
+   ============================================================ */
+document.querySelectorAll('.vt-btn').forEach(btn => {
+  btn.addEventListener('click', () => setView(btn.dataset.view));
+});
+colA.addEventListener('change', () => {
+  keepDistinct('a');
+  clearSelection();   // مفاتيح A قد تغيرت
+  refresh();
+  scheduleSave();
+});
+colB.addEventListener('change', () => {
+  keepDistinct('b');
+  clearSelection();   // مفاتيح B قد تغيرت
+  refresh();
+  scheduleSave();
+});
+showArchived.addEventListener('change', () => { afterMutation(); scheduleSave(); });
+
+/* إضافة */
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const note    = prettify(noteInput.value.trim());
+  const section = prettify(sectionInput.value.trim());
+  const place   = prettify(placeInput.value.trim());
+  const spec    = prettify(specInput.value.trim());
+  const createdAt   = todayStr();
+  const completedAt = completedInput.value || null;
+  if(!note || !section || !place || !spec) return;
+
+  const newId = nextId++;
+  records.push({ id:newId, note, section, place, spec, archived:false, createdAt, completedAt });
+
+  addLog({
+    action:'add', recordId:newId, recordNote:note,
+    createdAt, completedAt,
+    duration: durationDays(createdAt, completedAt),
+  });
+  afterMutation();
+
+  noteInput.value = '';
+  sectionInput.value = '';
+  placeInput.value = '';
+  specInput.value = spec;
+  completedInput.value = '';
+  noteInput.focus();
+});
+
+/* أحداث الخريطة */
+mapWrap.addEventListener('click', e => {
+  /* 1) أرشفة */
+  const chk = e.target.closest('.archchk');
+  if(chk){
+    const id = Number(chk.dataset.id);
+    const rec = records.find(r => r.id === id);
+    if(rec){
+      rec.archived = !rec.archived;
+      addLog({ action: rec.archived ? 'archive' : 'unarchive', recordId:id, recordNote: rec.note });
+      afterMutation();
+      if(rec.archived && !showArchived.checked) showToast('تمت الأرشفة — أُخفيت الملاحظة');
+      else if(rec.archived) showToast('تمت الأرشفة');
+      else showToast('تم إلغاء الأرشفة');
+    }
+    return;
+  }
+
+  /* 2) حذف */
+  const g = e.target.closest('.delx');
+  if(g){
+    const type = g.dataset.type;
+    const A = colA.value, B = colB.value;
+    if(type === 'leaf'){
+      const id = Number(g.dataset.id);
+      const rec = records.find(r => r.id === id);
+      if(rec){
+        addLog({ action:'delete', recordId:id, recordNote:rec.note, createdAt:rec.createdAt });
+        records = records.filter(r => r.id !== id);
+        afterMutation();
+      }
+      return;
+    }
+    if(type === 'b'){
+      const aKey = g.dataset.a, bKey = g.dataset.b;
+      const matches = records.filter(r =>
+        normalizeKey(valOf(r, A)) === aKey && normalizeKey(valOf(r, B)) === bKey);
+      const bName = matches.length ? prettify(valOf(matches[0], B)) : bKey;
+      if(!confirm(`حذف ${matches.length} ملاحظة تحت "${bName}"؟`)) return;
+      matches.forEach(r => addLog({ action:'delete', recordId:r.id, recordNote:r.note, createdAt:r.createdAt }));
+      records = records.filter(r =>
+        !(normalizeKey(valOf(r, A)) === aKey && normalizeKey(valOf(r, B)) === bKey));
+      afterMutation();
+      return;
+    }
+    if(type === 'a'){
+      const aKey = g.dataset.key;
+      const matches = records.filter(r => normalizeKey(valOf(r, A)) === aKey);
+      const aName = matches.length ? prettify(valOf(matches[0], A)) : aKey;
+      if(!confirm(`حذف ${matches.length} ملاحظة تحت "${aName}"؟`)) return;
+      matches.forEach(r => addLog({ action:'delete', recordId:r.id, recordNote:r.note, createdAt:r.createdAt }));
+      records = records.filter(r => normalizeKey(valOf(r, A)) !== aKey);
+      afterMutation();
+      return;
+    }
+  }
+
+  /* 3) تحديد فرع A */
+  const aNode = e.target.closest('.node-a');
+  if(aNode){
+    toggleASelection(aNode.dataset.aKey);
+    render();
+    updateSelectionUI();
+    showToast(hasSelection()
+      ? `🔹 ${selectedAKeys.size + selectedBPairs.size} فرع محدد`
+      : 'تم إلغاء التحديد — سيتم تصدير الكل');
+    return;
+  }
+
+  /* 4) تحديد فرع B */
+  const bNode = e.target.closest('.node-b');
+  if(bNode){
+    toggleBSelection(bNode.dataset.aKey, bNode.dataset.bKey);
+    render();
+    updateSelectionUI();
+    showToast(hasSelection()
+      ? `🔹 ${selectedAKeys.size + selectedBPairs.size} فرع محدد`
+      : 'تم إلغاء التحديد — سيتم تصدير الكل');
+    return;
+  }
+});
+
+/* زر إلغاء التحديد */
+document.getElementById('clearSelBtn').addEventListener('click', () => {
+  clearSelection();
+  render();
+  updateSelectionUI();
+  showToast('تم إلغاء التحديد — سيتم تصدير الخريطة كاملة');
+});
+
+/* أحداث الجدول */
+tableWrap.addEventListener('click', e => {
+  const delBtn = e.target.closest('.row-btn.del');
+  if(delBtn){
+    const id = Number(delBtn.dataset.id);
+    const rec = records.find(r => r.id === id);
+    if(rec && confirm(`حذف الملاحظة #${id}؟`)){
+      addLog({ action:'delete', recordId:id, recordNote:rec.note, createdAt:rec.createdAt });
+      records = records.filter(r => r.id !== id);
+      afterMutation();
+    }
+    return;
+  }
+  const archBtn = e.target.closest('.row-btn.arch');
+  if(archBtn){
+    const id = Number(archBtn.dataset.id);
+    const rec = records.find(r => r.id === id);
+    if(rec){
+      rec.archived = !rec.archived;
+      addLog({ action: rec.archived ? 'archive' : 'unarchive', recordId:id, recordNote: rec.note });
+      afterMutation();
+    }
+    return;
+  }
+});
+
+/* تعديل اسم عمود */
+tableWrap.addEventListener('change', e => {
+  const inp = e.target.closest('.col-name-input');
+  if(!inp) return;
+  const field = inp.dataset.field;
+  let val = inp.value.trim();
+  if(!val) val = DEFAULT_COL_NAMES[field];
+  inp.value = val;
+  const oldName = columnNames[field];
+  if(val === oldName) return;
+  columnNames[field] = val;
+  addLog({ action:'rename_col', oldVal: oldName, newVal: val });
+  updateColumnSelects();
+  render();
+  showToast(`تم تحديث اسم العمود إلى "${val}"`);
+});
+
+/* تعديل خلية */
+tableWrap.addEventListener('change', e => {
+  const inp = e.target.closest('.cell-input');
+  if(!inp) return;
+  const id = Number(inp.dataset.id);
+  const field = inp.dataset.field;
+  const rec = records.find(r => r.id === id);
+  if(!rec) return;
+
+  let newVal = inp.value;
+
+  if(field === 'createdAt' || field === 'completedAt'){
+    newVal = newVal ? String(newVal) : null;
+    const oldVal = rec[field];
+    if(oldVal === newVal){ inp.value = newVal || ''; return; }
+    rec[field] = newVal;
+
+    if(field === 'completedAt'){
+      const dur = durationDays(rec.createdAt, newVal);
+      if(!oldVal && newVal){
+        addLog({ action:'complete', recordId:id, recordNote: rec.note, newVal, duration: dur });
+        const durStr = dur != null ? ` · ⏱️ ${formatDuration(dur)}` : '';
+        showToast(`✓ إنجاز بتاريخ ${newVal}${durStr}`);
+      } else if(oldVal && !newVal){
+        addLog({ action:'uncomplete', recordId:id, recordNote: rec.note, oldVal });
+        showToast('تم إلغاء تاريخ الإنجاز');
+      } else {
+        addLog({ action:'edit', recordId:id, recordNote: rec.note, field:'completedAt', oldVal, newVal });
+        showToast('تم تحديث تاريخ الإنجاز');
+      }
+    } else {
+      addLog({ action:'edit', recordId:id, recordNote: rec.note, field:'createdAt', oldVal, newVal });
+      showToast('تم تحديث تاريخ الإدخال');
+    }
+  } else {
+    newVal = prettify(newVal);
+    inp.value = newVal;
+    const oldVal = rec[field];
+    if(oldVal === newVal) return;
+    rec[field] = newVal;
+    addLog({ action:'edit', recordId:id, recordNote: rec.note, field, oldVal, newVal });
+    showToast('تم التعديل');
+  }
+  afterMutation();
+});
+
+tableWrap.addEventListener('keydown', e => {
+  if((e.target.matches('.cell-input') || e.target.matches('.col-name-input')) && e.key === 'Enter'){
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+
+/* أزرار السجل */
+logWrap.addEventListener('click', e => {
+  const chip = e.target.closest('.log-chip');
+  if(chip){ logFilter = chip.dataset.action; renderLog(); return; }
+  const clearLogBtn = e.target.closest('#clearLogBtn');
+  if(clearLogBtn){
+    if(!confirm('مسح كل سجل التغييرات؟\n(لن تتأثر بيانات الملاحظات)')) return;
+    logEntries = [];
+    scheduleSave();
+    renderLog();
+    showToast('تم مسح السجل');
+  }
+});
+
+exportBtn.addEventListener('click', exportPDF);
+printBtn.addEventListener('click', printMap);
+
+clearBtn.addEventListener('click', () => {
+  if(!confirm('هل تريد فعلاً مسح كل البيانات المحفوظة على هذا الجهاز؟\nسيعود التطبيق إلى البيانات الافتراضية.')) return;
+  try{
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SETTINGS_KEY);
+  } catch(e){ console.warn(e); }
+  records = DEFAULT_RECORDS.map(r => ({ ...r }));
+  nextId = records.length + 1;
+  columnNames = { ...DEFAULT_COL_NAMES };
+  clearSelection();
+  updateColumnSelects();
+  addLog({ action:'clear_all' });
+  refresh();
+  flashSaved(true);
+  showToast('تم مسح البيانات');
+});
+
+/* تشغيل */
+init();
+</script>
+</body>
+</html>
